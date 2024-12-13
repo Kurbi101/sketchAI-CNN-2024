@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Main Page</title>
+    <link rel="stylesheet" href="../static/css/main.css">
+</head>
+<body>
+    <h1>Welcome, {{ username }}</h1>
+    <h2>Online Users (<span id="onlineCount">{{ online_users | length }}</span>)</h2>
+    <button id="sandboxButton" onclick="sandbox(username)">Sandbox</button>
+    <ul id="onlineUsers">
+        {% for user, info in online_users.items() %}
+            {% if user != username %}
+                <li>{{ user }} <button onclick="inviteUser('{{ user }}')">Invite</button></li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const username = '{{ username }}';
+        let currentGameCode = null;
+
+        socket.on('connect', () => {
+            console.log('Connected to the server on main page: ' + username );
+            sessionStorage.setItem('username', username);
+        });
+
+        function inviteUser(invitee) {
+            console.log(`Inviting ${invitee}`);
+            socket.emit('invite', { invitee: invitee, 'inviter': username});
+        }
+
+        function sandbox(player) {
+            console.log(`sending ${player} to sandbox`);
+            socket.emit('sandbox', { player: player });
+        }
+
+        socket.on('update_online_users', function(online_users) {
+            console.log('Updating online users', online_users);
+            const onlineUsersElem = document.getElementById('onlineUsers');
+            const onlineCountElem = document.getElementById('onlineCount');
+            onlineUsersElem.innerHTML = '';
+            onlineCountElem.textContent = Object.keys(online_users).length;
+            for (const user in online_users) {
+                if (user !== username) {
+                    const li = document.createElement('li');
+                    li.textContent = user;
+                    const button = document.createElement('button');
+                    button.textContent = 'Invite';
+                    button.onclick = function() { inviteUser(user); };
+                    sessionStorage.setItem('opponent', user);
+                    li.appendChild(button);
+                    onlineUsersElem.appendChild(li);
+                }
+            }
+        });
+
+        socket.on('invite', (data) => {
+            console.log('Invite received:', data);
+            const inviter = data.inviter;
+            const gameCode = data.game_code;
+
+            const acceptInvite = window.confirm(`${inviter} has invited you to a game. Do you want to accept?`);
+
+            // If the user accepts the invite, emit the accept_invite event
+            if (acceptInvite) {
+                sessionStorage.setItem('game_code', gameCode);
+                sessionStorage.setItem('opponent', inviter);
+                socket.emit('accept_invite', { game_code: gameCode, username: username, inviter: inviter});
+            }
+            else{
+                declineInvite() 
+            }
+        });
+
+        function declineInvite() {
+            currentGameCode = null;
+            console.log('invite declined');
+        }
+        
+        socket.on('update_game_session', (data) => {
+            console.log('Updating game session:', data);
+            sessionStorage.setItem('game_code', data.game_code);
+        });
+
+        socket.on('redirect_to_game', (data) => {
+            const gameCode = data.game_code;
+            window.location.href = `/game/${gameCode}`;
+        });
+
+        // Function to handle game start
+        socket.on('start_game', (data) => {
+            console.log('Game started:', data);
+            // Handle game start logic here
+        });
+        
+    </script>
+</body>
+</html>

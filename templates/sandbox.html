@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>game</title>
+    <link rel="stylesheet" href="../static/css/game.css">
+    <style>
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .prediction-container {
+            font-size: 0.9em;
+            margin-top: 20px;
+            text-align: center;
+        }
+        #predictionList {
+            list-style-type: none;
+            padding: 0;
+        }
+        #predictionList li {
+            margin: 5px 0;
+        }
+        #container {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="current-class">
+        <h2>Sandbox</h2>
+    </div>
+    <div class="main-container">
+        <div class="canvas-container">
+            <canvas id="drawingCanvas" width="400" height="400"></canvas>
+        </div>
+        <div id="container">
+            <button id="eraserButton">Toggle Eraser</button>
+            <button id="deleteButton">Delete All</button>
+        </div>
+        <div class="prediction-container">
+            <h2>Prediction</h2>
+            <ul id="predictionList">
+                <!-- Predictions will be inserted here -->
+            </ul>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="../static/js/game.js"></script>
+    <script>
+        const socket = io();
+        const game_code = sessionStorage.getItem('game_code');
+        const username = sessionStorage.getItem('username');
+        const opponent = sessionStorage.getItem('opponent');
+        const brushWidth = 7;
+
+        const canvas = document.getElementById("drawingCanvas");
+        const context = canvas.getContext("2d");
+        const eraserButton = document.getElementById("eraserButton");
+        const deleteButton = document.getElementById("deleteButton");
+
+        let isDrawing = false;
+        let useEraser = false;
+        let allStrokes = [];
+
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        window.addEventListener("beforeunload", function(){
+            socket.emit('leave_game', { game_code: game_code, username: username });
+        });
+
+        window.onload = async function() {
+            socket.emit('user_connect', { username: username, game_code: game_code });
+        }
+        
+        function sendVectorDataForPrediction() {
+            if (allStrokes.length === 0) {
+                alert('Please draw something before predicting.');
+                return;
+            }
+            console.log('allStrokes: ', allStrokes)
+            console.log('json: ', JSON.stringify({ strokes: allStrokes }))
+            try {
+                fetch('http://localhost:5000/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ strokes: allStrokes })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Prediction:', data);
+                    updatePredictions(data.predictions);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function updatePredictions(predictions) {
+            const predictionListElem = document.getElementById('predictionList');
+            predictionListElem.innerHTML = '';
+            predictions.forEach((prediction, index) => {
+                if (index < 10) {
+                    const li = document.createElement('li');
+                    li.textContent = `${prediction.label}: ${prediction.confidence.toFixed(2)}%`;
+                    predictionListElem.appendChild(li);
+                }
+            });
+        }
+
+        canvas.addEventListener("mouseup", stopDrawing);
+        canvas.addEventListener("mousemove", draw);
+        canvas.addEventListener("mouseout", stopDrawing);
+
+        eraserButton.addEventListener("click", function() {
+            toggleEraserState();
+            eraserButton.textContent = useEraser ? "Disable Eraser" : "Enable Eraser";
+        });
+
+        deleteButton.addEventListener("click", function() {
+            allStrokes = [];
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.fillStyle = 'white';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+        });
+
+        document.addEventListener("keydown", function(e) {
+            if (e.key === "Shift") {
+                toggleEraserState();
+            }
+            if (e.ctrlKey && e.key === "z") {
+                undo();
+            }
+        });
+
+        document.addEventListener("keyup", function(e) {
+            if (e.key === "Shift") {
+                toggleEraserState();
+            }
+        });
+
+        canvas.addEventListener('mousedown', function(e) {
+            isDrawing = true;
+            currentStroke = [];
+            const point = getMousePos(canvas, e);
+            currentStroke.push([point.x, point.y]);
+        });
+
+        canvas.addEventListener('mousemove', function(e) {
+            if (!isDrawing) return;
+            const point = getMousePos(canvas, e);
+            currentStroke.push([point.x, point.y]);
+            drawLine(context, point.x, point.y);
+        });
+
+        canvas.addEventListener('mouseup', function() {
+            if (currentStroke.length > 0) {
+                allStrokes.push(currentStroke);
+            }
+            isDrawing = false;
+        });
+        
+    </script>
+</body>
+</html>
+s

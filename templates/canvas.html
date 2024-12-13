@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Drawing</title>
+    <link rel="stylesheet" href="../static/css/styleSheet.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            background-color: #1D2731;
+            color: #ffffff;
+        }
+        .main-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+        }
+        .prediction-container {
+            margin-right: 20px;
+            padding: 10px;
+            background: #2E4053;
+            border-radius: 5px;
+        }
+        canvas {
+            border: 1px solid #000;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+</div>
+    <div class="main-container">
+        <div class="prediction-container">
+            <h2>Prediction</h2>
+            <p id="predictionResult">predicted class:</p>
+            <p id="confidenceResult">Confidence:</p>
+            <img id="resultImage" src="" alt="Processed Image">
+        </div>
+        <div>
+            <div class="canvas-container">
+                <canvas id="drawingCanvas" width="400" height="400"></canvas>
+            </div>
+            <div id="container">
+                <button id="eraserButton">Toggle Eraser</button>
+                <button id="deleteButton">Delete All</button>
+                <button id="createjpgButton">Predict Image</button>      
+            </div>
+        </div>
+    </div>
+    <script src="../static/js/script.js"></script>
+</body>
+</html>
